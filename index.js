@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -22,27 +22,47 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    const allBioDataCollection = client.db("hurtBondDB").collection("allBioData");
-    const premiumBioDataCollection = client.db("hurtBondDB").collection("premiumBioData");
+    const allBioDataCollection = client
+      .db("hurtBondDB")
+      .collection("allBioData");
+    const premiumBioDataCollection = client
+      .db("hurtBondDB")
+      .collection("premiumBioData");
     const reviewsCollection = client.db("hurtBondDB").collection("reviews");
 
-      //all-bio-data
-      app.get('/bioData', async(req, res) => {
-        const result = await allBioDataCollection.find().toArray();
-        res.send(result);
-      })
+    //all-bio-data
+    app.get("/allBioData", async (req, res) => {
+      const result = await allBioDataCollection.find().toArray();
+      res.send(result);
+    });
 
-      //premium-bio-data
-      app.get('/premium-bioData', async(req, res) => {
-        const result = await premiumBioDataCollection.find().toArray();
-        res.send(result);
-      })
+    app.get("/biodata/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await allBioDataCollection.findOne(query);
+      res.send(result);
+    });
+    //all-bio-data close
 
-      //review
-      app.get('/reviews', async(req, res) => {
-        const result = await reviewsCollection.find().toArray();
-        res.send(result);
-      })
+    //premium-bio-data
+    app.get("/premium-bioData", async (req, res) => {
+      const result = await premiumBioDataCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/premium-bioData/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await premiumBioDataCollection.findOne(query);
+      res.send(result);
+    });
+    //premium-bio-data close
+
+    //review
+    app.get("/reviews", async (req, res) => {
+      const result = await reviewsCollection.find().toArray();
+      res.send(result);
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log("successfully connected to MongoDB!");
