@@ -81,7 +81,20 @@ async function run() {
       const result = await favoritesBioCollection.insertOne(favoriteItem);
       res.send(result);
     });
+
+    app.delete("/favorite/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = {_id : new ObjectId(id)};
+      const result = await favoritesBioCollection.deleteOne(query);
+      res.send(result);
+    });
     //favorites api end
+
+    //checkOut api
+
+    app.post("/checkout", async (req, res) => {});
+
+    //checkOut api end
 
     await client.db("admin").command({ ping: 1 });
     console.log("successfully connected to MongoDB!");
