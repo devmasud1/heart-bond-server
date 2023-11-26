@@ -34,6 +34,36 @@ async function run() {
       .collection("favorites");
 
     //all-bio-data
+    const getLastBioDataId = async () => {
+      try {
+        const lastBioDataId = await allBioDataCollection
+          .find()
+          .sort({ Biodata_Id: -1 })
+          .limit(1)
+          .toArray();
+        if (lastBioDataId.length > 0) {
+          return lastBioDataId[0].Biodata_Id + 1;
+        } else {
+          return 1;
+        }
+      } catch (error) {
+        throw error;
+      }
+    };
+    app.post("/biodata", async (req, res) => {
+      const bioDataInfo = req.body;
+
+      try {
+        const newBioDataId = await getLastBioDataId();
+        bioDataInfo.Biodata_Id = newBioDataId;
+
+        const result = await allBioDataCollection.insertOne(bioDataInfo);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send("Error creating bioData");
+      }
+    });
+
     app.get("/allBioData", async (req, res) => {
       const result = await allBioDataCollection.find().toArray();
       res.send(result);
@@ -84,7 +114,7 @@ async function run() {
 
     app.delete("/favorite/:id", async (req, res) => {
       const id = req.params.id;
-      const query = {_id : new ObjectId(id)};
+      const query = { _id: new ObjectId(id) };
       const result = await favoritesBioCollection.deleteOne(query);
       res.send(result);
     });
