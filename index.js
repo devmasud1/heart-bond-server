@@ -29,6 +29,9 @@ async function run() {
       .db("hurtBondDB")
       .collection("premiumBioData");
     const reviewsCollection = client.db("hurtBondDB").collection("reviews");
+    const favoritesBioCollection = client
+      .db("hurtBondDB")
+      .collection("favorites");
 
     //all-bio-data
     app.get("/allBioData", async (req, res) => {
@@ -58,11 +61,27 @@ async function run() {
     });
     //premium-bio-data close
 
-    //review
+    //review api
     app.get("/reviews", async (req, res) => {
       const result = await reviewsCollection.find().toArray();
       res.send(result);
     });
+    //review api end
+
+    //favorites api
+    app.get("/favorite", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const result = await favoritesBioCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.post("/favorite", async (req, res) => {
+      const favoriteItem = req.body;
+      const result = await favoritesBioCollection.insertOne(favoriteItem);
+      res.send(result);
+    });
+    //favorites api end
 
     await client.db("admin").command({ ping: 1 });
     console.log("successfully connected to MongoDB!");
@@ -72,7 +91,7 @@ async function run() {
 run().catch(console.dir);
 
 app.get("/", (req, res) => {
-  res.send("Hello - Heart bond!");
+  res.send("Hello - Heart bond is running!");
 });
 
 app.listen(port, () => {
