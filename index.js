@@ -29,6 +29,7 @@ async function run() {
       .db("hurtBondDB")
       .collection("premiumBioData");
     const reviewsCollection = client.db("hurtBondDB").collection("reviews");
+    const requestPremiumCollection = client.db("hurtBondDB").collection("requestPremium");
     const favoritesBioCollection = client
       .db("hurtBondDB")
       .collection("favorites");
@@ -75,6 +76,13 @@ async function run() {
       const result = await allBioDataCollection.findOne(query);
       res.send(result);
     });
+
+    app.get("/biodata", async(req, res) => {
+      const email = req.query.email;
+      const query = {Email : email}
+      const result = await allBioDataCollection.find(query).toArray();
+      res.send(result);
+    })
     //all-bio-data close
 
     //premium-bio-data
@@ -90,6 +98,14 @@ async function run() {
       res.send(result);
     });
     //premium-bio-data close
+
+    //request for premium
+    app.post("/biodata/make-premium", async(req, res) => {
+      const premiumInfo = req.body;
+      const result = await requestPremiumCollection.insertOne(premiumInfo);
+      res.send(result);
+    })
+    //request for premium ens
 
     //review api
     app.get("/reviews", async (req, res) => {
