@@ -37,6 +37,20 @@ async function run() {
       .db("hurtBondDB")
       .collection("favorites");
 
+    //find admin api
+    app.get("/admin/:email", async (req, res) => {
+      const email = req.params.email;
+
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+
+      let admin = false;
+      if (user) {
+        admin = user?.role === "admin";
+      }
+      res.send({ admin });
+    });
+
     //user api
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -68,9 +82,9 @@ async function run() {
 
     app.patch("/users/make-premium/:id", async (req, res) => {
       const id = req.params.id;
-      console.log(id)
+      console.log(id);
       const filter = { _id: new ObjectId(id) };
-      console.log(filter)
+      console.log(filter);
       const updateDoc = {
         $set: {
           status: "premium",
