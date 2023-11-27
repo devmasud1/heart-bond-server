@@ -22,6 +22,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
+    const userCollection = client.db("hurtBondDB").collection("users");
     const allBioDataCollection = client
       .db("hurtBondDB")
       .collection("allBioData");
@@ -29,10 +30,56 @@ async function run() {
       .db("hurtBondDB")
       .collection("premiumBioData");
     const reviewsCollection = client.db("hurtBondDB").collection("reviews");
-    const requestPremiumCollection = client.db("hurtBondDB").collection("requestPremium");
+    const requestPremiumCollection = client
+      .db("hurtBondDB")
+      .collection("requestPremium");
     const favoritesBioCollection = client
       .db("hurtBondDB")
       .collection("favorites");
+
+    //user api
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const exitingUser = await userCollection.findOne(query);
+      if (exitingUser) {
+        return res.send({ message: "user already exist", insertId: null });
+      }
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+
+    app.get("/users", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.patch("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await userCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    app.patch("/users/make-premium/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log(id)
+      const filter = { _id: new ObjectId(id) };
+      console.log(filter)
+      const updateDoc = {
+        $set: {
+          status: "premium",
+        },
+      };
+      const result = await userCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+    //user api end
 
     //all-bio-data
     const getLastBioDataId = async () => {
@@ -77,12 +124,12 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/biodata", async(req, res) => {
+    app.get("/biodata", async (req, res) => {
       const email = req.query.email;
-      const query = {Email : email}
+      const query = { Email: email };
       const result = await allBioDataCollection.find(query).toArray();
       res.send(result);
-    })
+    });
     //all-bio-data close
 
     //premium-bio-data
@@ -100,11 +147,16 @@ async function run() {
     //premium-bio-data close
 
     //request for premium
-    app.post("/biodata/make-premium", async(req, res) => {
+    app.get("/allPreRequest", async (req, res) => {
+      const result = await requestPremiumCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.post("/biodata/make-premium", async (req, res) => {
       const premiumInfo = req.body;
       const result = await requestPremiumCollection.insertOne(premiumInfo);
       res.send(result);
-    })
+    });
     //request for premium ens
 
     //review api
@@ -135,6 +187,21 @@ async function run() {
       res.send(result);
     });
     //favorites api end
+
+    //admin api
+    app.patch("/make-premium/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { Biodata_Id: parseInt(id) };
+      const filter2 = { bioDataId: parseInt(id) };
+      const updateDoc = { $set: { status: "premium" } };
+      const result = await allBioDataCollection.updateOne(filter, updateDoc);
+      const result2 = await requestPremiumCollection.updateOne(
+        filter2,
+        updateDoc
+      );
+      res.send({ result, result2 });
+    });
+    //admin api end
 
     //checkOut api
 
