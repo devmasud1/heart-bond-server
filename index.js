@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const stripe = require("stripe")(process.env.STRIPE_KEY);
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -36,6 +37,29 @@ async function run() {
     const favoritesBioCollection = client
       .db("hurtBondDB")
       .collection("favorites");
+    const paymentCollection = client.db("hurtBondDB").collection("payments");
+
+    //payment method
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    app.post("/payment", async (req, res) => {
+      const paymentInfo = req.body;
+      const paymentResult = await paymentCollection.insertOne(paymentInfo);
+
+      res.send(paymentResult);
+    });
 
     //find admin api
     app.get("/admin/:email", async (req, res) => {
@@ -51,10 +75,54 @@ async function run() {
       res.send({ admin });
     });
 
+    //contact request
+    app.get("/contact-request", async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      res.send(result);
+    });
+    app.get("/contact-request/:email", async (req, res) => {
+      const email = req.params.email;
+      const filter = { email: email };
+      const result = await paymentCollection.find(filter).toArray();
+      res.send(result);
+    });
+
+    app.patch("/approve-request/:id", async(req, res) => {
+      const id = req.params.id;
+      const filter = { bioDataId: id };
+      const updateDoc = {
+        $set: {
+          status: "approved",
+        },
+      };
+      const result = await paymentCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    })
+
+    app.delete("/delete-request/:id", async(req, res) => {
+      const id = req.params.id;
+      const query ={_id : new ObjectId(id)};
+      const result = await paymentCollection.deleteOne(query);
+      res.send(result);
+    })
+    //contact request end
+
     //user api
+    app.get("/user/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+
+      let premium = false;
+      if (user) {
+        premium = user?.status === "premium";
+      }
+      res.send({ premium });
+    });
+
     app.post("/users", async (req, res) => {
       const user = req.body;
-      const query = { email: user.email };
+      const query = { email: user?.email };
       const exitingUser = await userCollection.findOne(query);
       if (exitingUser) {
         return res.send({ message: "user already exist", insertId: null });
