@@ -242,6 +242,12 @@ async function run() {
     //request for premium ens
 
     //review api
+    app.post("/review", async(req, res) => {
+      const reviewInfo = req.body;
+      const result = await reviewsCollection.insertOne(reviewInfo);
+      res.send(result);
+     })
+
     app.get("/reviews", async (req, res) => {
       const result = await reviewsCollection.find().toArray();
       res.send(result);
