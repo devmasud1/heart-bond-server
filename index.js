@@ -87,7 +87,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/approve-request/:id", async(req, res) => {
+    app.patch("/approve-request/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { bioDataId: id };
       const updateDoc = {
@@ -97,14 +97,14 @@ async function run() {
       };
       const result = await paymentCollection.updateOne(filter, updateDoc);
       res.send(result);
-    })
+    });
 
-    app.delete("/delete-request/:id", async(req, res) => {
+    app.delete("/delete-request/:id", async (req, res) => {
       const id = req.params.id;
-      const query ={_id : new ObjectId(id)};
+      const query = { _id: new ObjectId(id) };
       const result = await paymentCollection.deleteOne(query);
       res.send(result);
-    })
+    });
     //contact request end
 
     //user api
@@ -286,10 +286,52 @@ async function run() {
     //admin api end
 
     //checkOut api
-
     app.post("/checkout", async (req, res) => {});
-
     //checkOut api end
+    
+    //analytics
+    app.get("/admin-analytics", async (req, res) => {
+      const totalBioData = await allBioDataCollection.estimatedDocumentCount();
+      const completeMarriage = await reviewsCollection.estimatedDocumentCount();
+      const premiumBioData = await premiumBioDataCollection.estimatedDocumentCount();
+
+      const result = await paymentCollection
+        .aggregate([
+          {
+            $group: {
+              _id: null,
+              totalRevenue: {
+                $sum: "$price",
+              },
+            },
+          },
+        ])
+        .toArray();
+      const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+
+      const genderData = await allBioDataCollection.aggregate([
+        {
+          $group:{
+            _id: "$Biodata_Type",
+            count: {$sum: 1}
+          }
+        }
+      ]).toArray();
+      let totalMale = 0;
+      let totalFemale = 0;
+
+      genderData.forEach((item) => {
+        if(item._id === 'Male'){
+          totalMale = item.count
+        }
+        else if (item._id === 'Female') {
+          totalFemale = item.count
+        }
+      })
+
+      res.send({ totalBioData, premiumBioData, 
+        totalMale,totalFemale,completeMarriage, revenue });
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log("successfully connected to MongoDB!");
