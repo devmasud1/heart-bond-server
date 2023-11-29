@@ -339,6 +339,30 @@ async function run() {
         totalMale,totalFemale,completeMarriage, revenue });
     });
 
+    //admin get review details
+    app.get('/success-story', async (req, res) => {
+      try {
+        const pipeline = [
+          {
+            $match: { gender: { $in: ['male', 'female'] } }, // Filter by male and female gender
+          },
+          {
+            $group: {
+              _id: '$gender',
+              biodataIds: { $addToSet: '$_id' }, // Collecting unique IDs
+              successStoryText: { $push: '$successStoryText' }, // Collecting successStoryText
+            },
+          },
+        ];
+    
+        const result = await reviewsCollection.aggregate(pipeline).toArray();
+        res.json(result);
+      } catch (err) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+    
+
     await client.db("admin").command({ ping: 1 });
     console.log("successfully connected to MongoDB!");
   } finally {
