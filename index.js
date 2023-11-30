@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const stripe = require("stripe")(process.env.STRIPE_KEY);
@@ -8,7 +9,12 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 //middleware
-app.use(cors());
+const corsOrigin = {
+  origin: ["http://localhost:5173","https://heart-bond.web.app","https://heart-bond.firebaseapp.com"],
+  credentials: true,
+  optionSuccessStatus: 200,
+};
+app.use(cors(corsOrigin));
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.aunb3y8.mongodb.net/?retryWrites=true&w=majority`;
@@ -38,6 +44,40 @@ async function run() {
       .db("hurtBondDB")
       .collection("favorites");
     const paymentCollection = client.db("hurtBondDB").collection("payments");
+
+
+     //jwt api
+     app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
+    //middleware
+    const verifyToken = (req, res, next) => {
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "unauthorized access" });
+      }
+      const token = req.headers.authorization.split(" ")[1];
+      jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "unauthorized access" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === "admin";
+      if (!isAdmin) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
 
     //payment method
     app.post("/create-payment-intent", async (req, res) => {
@@ -76,26 +116,10 @@ async function run() {
     });
 
     //contact request
-    app.get("/contact-request", async (req, res) => {
-      const result = await paymentCollection.find().toArray();
-      res.send(result);
-    });
     app.get("/contact-request/:email", async (req, res) => {
       const email = req.params.email;
       const filter = { email: email };
       const result = await paymentCollection.find(filter).toArray();
-      res.send(result);
-    });
-
-    app.patch("/approve-request/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { bioDataId: id };
-      const updateDoc = {
-        $set: {
-          status: "approved",
-        },
-      };
-      const result = await paymentCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
 
@@ -131,36 +155,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/users", async (req, res) => {
-      const result = await userCollection.find().toArray();
-      res.send(result);
-    });
-
-    app.patch("/users/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updateDoc = {
-        $set: {
-          role: "admin",
-        },
-      };
-      const result = await userCollection.updateOne(filter, updateDoc);
-      res.send(result);
-    });
-
-    app.patch("/users/make-premium/:id", async (req, res) => {
-      const id = req.params.id;
-      console.log(id);
-      const filter = { _id: new ObjectId(id) };
-      console.log(filter);
-      const updateDoc = {
-        $set: {
-          status: "premium",
-        },
-      };
-      const result = await userCollection.updateOne(filter, updateDoc);
-      res.send(result);
-    });
+   
     //user api end
 
     //all-bio-data
@@ -229,11 +224,6 @@ async function run() {
     //premium-bio-data close
 
     //request for premium
-    app.get("/allPreRequest", async (req, res) => {
-      const result = await requestPremiumCollection.find().toArray();
-      res.send(result);
-    });
-
     app.post("/biodata/make-premium", async (req, res) => {
       const premiumInfo = req.body;
       const result = await requestPremiumCollection.insertOne(premiumInfo);
@@ -277,7 +267,54 @@ async function run() {
     //favorites api end
 
     //admin api
-    app.patch("/make-premium/:id", async (req, res) => {
+    app.get("/users",verifyToken, verifyAdmin, async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+    app.patch("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await userCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+   
+    app.patch("/users/make-premium/:id", verifyAdmin, verifyToken,  async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          status: "premium",
+        },
+      };
+      const result = await userCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+    app.get("/contact-request",verifyToken, verifyAdmin, async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      res.send(result);
+    });
+    app.patch("/approve-request/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { bioDataId: id };
+      const updateDoc = {
+        $set: {
+          status: "approved",
+        },
+      };
+      const result = await paymentCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    app.get("/allPreRequest", verifyToken, verifyAdmin, async (req, res) => {
+      const result = await requestPremiumCollection.find().toArray();
+      res.send(result);
+    });
+    app.patch("/make-premium/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { Biodata_Id: parseInt(id) };
       const filter2 = { bioDataId: parseInt(id) };
@@ -296,7 +333,7 @@ async function run() {
     //checkOut api end
     
     //analytics
-    app.get("/admin-analytics", async (req, res) => {
+    app.get("/admin-analytics",  async (req, res) => {
       const totalBioData = await allBioDataCollection.estimatedDocumentCount();
       const completeMarriage = await reviewsCollection.estimatedDocumentCount();
       const premiumBioData = await premiumBioDataCollection.estimatedDocumentCount();
@@ -340,17 +377,17 @@ async function run() {
     });
 
     //admin get review details
-    app.get('/success-story', async (req, res) => {
+    app.get('/success-story', verifyToken, async (req, res) => {
       try {
         const pipeline = [
           {
-            $match: { gender: { $in: ['male', 'female'] } }, // Filter by male and female gender
+            $match: { gender: { $in: ['male', 'female'] } },
           },
           {
             $group: {
               _id: '$gender',
-              biodataIds: { $addToSet: '$_id' }, // Collecting unique IDs
-              successStoryText: { $push: '$successStoryText' }, // Collecting successStoryText
+              biodataIds: { $addToSet: '$_id' }, 
+              successStoryText: { $push: '$successStoryText' },
             },
           },
         ];
@@ -363,9 +400,10 @@ async function run() {
     });
     
 
-    await client.db("admin").command({ ping: 1 });
-    console.log("successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("successfully connected to MongoDB!");
   } finally {
+    //
   }
 }
 run().catch(console.dir);
