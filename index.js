@@ -283,7 +283,7 @@ async function run() {
       res.send(result);
     });
    
-    app.patch("/users/make-premium/:id", verifyAdmin, verifyToken,  async (req, res) => {
+    app.patch("/users/make-premium/:id", verifyToken, verifyAdmin,   async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updateDoc = {
@@ -400,8 +400,8 @@ async function run() {
     });
     
 
-    // await client.db("admin").command({ ping: 1 });
-    // console.log("successfully connected to MongoDB!");
+    await client.db("admin").command({ ping: 1 });
+    console.log("successfully connected to MongoDB!");
   } finally {
     //
   }
